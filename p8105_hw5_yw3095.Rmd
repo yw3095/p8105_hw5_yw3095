@@ -5,3 +5,56 @@ date: "November 9, 2018"
 output: github_document
 ---
 
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.width = 6,
+                      fig.asp = .6,
+                      out.width = "90%")
+library(tidyverse)
+library(rvest)
+```
+
+##Problem 1
+
+Create a tidy dataframe containing data from all participants in a longitudinal study that included a control arm and an experimental arm.
+
+```{r}
+read_csv_data = function(x) {
+  read_csv(x) %>% 
+    mutate(subject = x)
+}
+
+file_list = list.files("./data/") %>% paste0("./data/", .)
+
+hw5 = map_dfr(file_list, read_csv_data) %>%
+  separate(subject, into = c("remove1", "remove2", "subject"), sep = "\\/") %>% 
+  separate(subject, into = c("subject", "remove3"), sep = "\\.") %>%
+  mutate(group = subject) %>% 
+  separate(group, into = c("group", "remove4"), sep = "_") %>%
+  gather(key = week, value = result, week_1:week_8) %>% 
+  separate(week, into = c("remove5", "week"), sep = "_") %>%
+  mutate(week = as.numeric(week)) %>% 
+  select(subject, group, week, result) %>% 
+  janitor::clean_names() 
+  head(hw5)
+```
+```{r, fig.width = 8, fig.asp = .8}
+ggplot(hw5, aes(x = week, y = result, color = subject)) + 
+  geom_line() +
+  facet_grid(. ~ group) +
+  labs(
+    title = "Observations Changes on Each Subject Over Time",
+    x = "Week",
+    y = "Result") + 
+  theme_set(theme_bw() + 
+  theme(legend.position = "bottom"))
+```
+```{r}
+hw5 %>% 
+  group_by(group, week) %>% 
+  summarise(mean_result = mean(result)) %>% 
+  knitr::kable(digits = 1)
+
+```
+At week 1, control group and exposure group had the similar value of observations, which were about 1. The observations of subjects in control group kept around value 1 over 8 weeks, while the observations of subjects in exposure group increased over time from 1 to 5.
+
