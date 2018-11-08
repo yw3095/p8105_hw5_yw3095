@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       out.width = "90%")
 library(tidyverse)
 library(rvest)
+library(stats)
 ```
 
 ##Problem 1
@@ -38,7 +39,7 @@ hw5 = map_dfr(file_list, read_csv_data) %>%
   janitor::clean_names() 
   head(hw5)
 ```
-```{r, fig.width = 8, fig.asp = .8}
+```{r, fig.width = 6, fig.asp = .8}
 ggplot(hw5, aes(x = week, y = result, color = subject)) + 
   geom_line() +
   facet_grid(. ~ group) +
@@ -54,7 +55,62 @@ hw5 %>%
   group_by(group, week) %>% 
   summarise(mean_result = mean(result)) %>% 
   knitr::kable(digits = 1)
-
 ```
 At week 1, control group and exposure group had the similar value of observations, which were about 1. The observations of subjects in control group kept around value 1 over 8 weeks, while the observations of subjects in exposure group increased over time from 1 to 5.
+
+
+##Problem 2
+
+This problem focus on data on homicides in 50 large U.S. cities.
+
+```{r}
+homicide = read_csv(file = "./data2/homicide.csv") %>% 
+  janitor::clean_names() 
+  skimr::skim(homicide)
+```
+
+```{r}
+summary = homicide %>% 
+  mutate(city_state = paste(city, state, sep = ", ")) %>% 
+  group_by(city_state, disposition) %>% 
+  summarize(num_homicide = n())
+
+summary = summary %>% 
+  spread(key = disposition, value = num_homicide) %>%
+  janitor::clean_names() %>% 
+  mutate(total_homicide = closed_by_arrest + closed_without_arrest + open_no_arrest,
+         unsolved_homicide = closed_without_arrest + open_no_arrest,
+         total_homicide = as.numeric(total_homicide),
+         unsolved_homicide = as.numeric(unsolved_homicide)) %>% 
+  filter(!is.na(total_homicide) | !is.na(unsolved_homicide)) %>% 
+  select(city_state, total_homicide, unsolved_homicide) 
+```
+```{r}
+summary %>% 
+  filter(city_state == "Baltimore, MD") 
+  output = prop.test(1825, 2827, correct = TRUE)
+  broom::tidy(output) %>% 
+    janitor::clean_names() %>% 
+    select(estimate, conf_low, conf_high) %>% 
+    knitr::kable(digits = 3)
+```
+```{r}
+prop_test = function(x){
+  
+  city_test = 
+    summary %>% 
+    filter(city_state == x)
+  
+  prop.test(city_test$unsolved_homicide, city_test$total_homicide) %>% 
+    broom::tidy() %>% 
+    select(estimate, conf.low, conf.high)
+}
+
+city_prop = 
+  tibble(city_state = summary$city_state) %>% 
+  mutate(map(.x = summary$city_state, ~prop_test(.x))) %>% 
+  unnest
+
+```
+
 
